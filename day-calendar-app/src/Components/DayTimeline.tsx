@@ -39,6 +39,7 @@ function DayTimeline() {
   const [priority, setPriority] = useState<PriorityOption>('medium')
   const [blocks, setBlocks] = useState<TimeBlock[]>([])
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null)
+  const [draggedBlockId, setDraggedBlockId] = useState<number | null>(null)
 
   function handleAddBlock() {
     const trimmedDetails = details.trim()
@@ -67,6 +68,38 @@ function DayTimeline() {
   function closePopup() {
     setSelectedBlock(null)
   }
+// CALVIN: CODE FOR DRAG AND DROP FUNCTIONALITY
+  function handleDragStart(id: number) {
+  setDraggedBlockId(id)
+}
+
+function handleDragOver(e: React.DragEvent) {
+  e.preventDefault()
+}
+
+function handleDrop(targetBlock: TimeBlock) {
+  if (draggedBlockId === null) return
+
+  const updatedBlocks = [...blocks]
+  const draggedIndex = updatedBlocks.findIndex(b => b.id === draggedBlockId)
+  const targetIndex = updatedBlocks.findIndex(b => b.id === targetBlock.id)
+
+  if (draggedIndex === -1 || targetIndex === -1) return
+
+  const [removed] = updatedBlocks.splice(draggedIndex, 1)
+  updatedBlocks.splice(targetIndex, 0, removed)
+
+  setBlocks(updatedBlocks)
+  setDraggedBlockId(null)
+}
+// CODE FOR DELETING A BLOCK
+function handleDeleteBlock(id: number) {
+  setBlocks((prev) => prev.filter((block) => block.id !== id))
+
+  if (selectedBlock?.id === id) {
+    setSelectedBlock(null)
+  }
+}
 
   return (
     <section className="day-timeline">
@@ -113,6 +146,7 @@ function DayTimeline() {
             value={details}
             onChange={(e) => setDetails(e.target.value)}
             placeholder="Enter event details"
+            onKeyDown={(e) => e.key === 'Enter' && handleAddBlock()}
           />
         </div>
 
@@ -150,12 +184,25 @@ function DayTimeline() {
                     <button
                       key={block.id}
                       type="button"
+                      draggable
+                      onDragStart={() => handleDragStart(block.id)}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDrop(block)}
                       className={`time-block priority-${block.priority}`}
                       style={{ width: durationWidths[block.duration] }}
                       onClick={() => handleBlockClick(block)}
                     >
                       <div className="priority-strip" aria-hidden="true"></div>
                       <div className="time-block-details">{block.details}</div>
+                      <button
+                        className="delete-btn"
+                        onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteBlock(block.id)
+                        }}
+                      >
+                        ✕
+                      </button>
                     </button>
                   ))
                 )}
@@ -202,6 +249,12 @@ function DayTimeline() {
               <p>
                 <strong>Details:</strong> {selectedBlock.details}
               </p>
+              <button
+                className="delete-btn-popup"
+                onClick={() => handleDeleteBlock(selectedBlock.id)}
+              >
+                Delete Event
+              </button>
             </div>
           </div>
         </div>
