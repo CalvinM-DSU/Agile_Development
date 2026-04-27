@@ -61,7 +61,9 @@
 .control-group input:focus-visible,
 .add-block-button:focus-visible,
 .time-block:focus-visible,
-.popup-close:focus-visible {
+.popup-close:focus-visible,
+.delete-btn:focus-visible,
+.delete-btn-popup:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -122,6 +124,7 @@
   gap: 10px;
   align-items: flex-start;
   justify-content: center;
+  min-height: 60px;
 }
 
 .empty-state {
@@ -255,7 +258,8 @@
   color: var(--text);
   font-size: 16px;
   cursor: pointer;
-  padding: 0 8px;
+  padding: 0 10px;
+  align-self: stretch;
 }
 
 .delete-btn:hover {

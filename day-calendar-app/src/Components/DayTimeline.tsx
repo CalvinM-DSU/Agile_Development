@@ -1,16 +1,12 @@
 import { useState } from 'react'
 import './DayTimeline.css'
-
-type DurationOption = 10 | 15 | 30 | 45 | 60
-type PriorityOption = 'high' | 'medium' | 'low'
-
-type TimeBlock = {
-  id: number
-  time: string
-  duration: DurationOption
-  details: string
-  priority: PriorityOption
-}
+import {
+  moveBlockToTime,
+  reorderBlocksWithinTime,
+  type TimeBlock,
+  type DurationOption,
+  type PriorityOption,
+} from './DragHelpers'
 
 const timeSlots = [
   '10:00 AM',
@@ -68,38 +64,70 @@ function DayTimeline() {
   function closePopup() {
     setSelectedBlock(null)
   }
-// CALVIN: CODE FOR DRAG AND DROP FUNCTIONALITY
+
   function handleDragStart(id: number) {
-  setDraggedBlockId(id)
-}
-
-function handleDragOver(e: React.DragEvent) {
-  e.preventDefault()
-}
-
-function handleDrop(targetBlock: TimeBlock) {
-  if (draggedBlockId === null) return
-
-  const updatedBlocks = [...blocks]
-  const draggedIndex = updatedBlocks.findIndex(b => b.id === draggedBlockId)
-  const targetIndex = updatedBlocks.findIndex(b => b.id === targetBlock.id)
-
-  if (draggedIndex === -1 || targetIndex === -1) return
-
-  const [removed] = updatedBlocks.splice(draggedIndex, 1)
-  updatedBlocks.splice(targetIndex, 0, removed)
-
-  setBlocks(updatedBlocks)
-  setDraggedBlockId(null)
-}
-// CODE FOR DELETING A BLOCK
-function handleDeleteBlock(id: number) {
-  setBlocks((prev) => prev.filter((block) => block.id !== id))
-
-  if (selectedBlock?.id === id) {
-    setSelectedBlock(null)
+    setDraggedBlockId(id)
   }
-}
+
+  function handleDragEnd() {
+    setDraggedBlockId(null)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+  }
+
+  function handleDropOnTime(time: string) {
+    if (draggedBlockId === null) return
+
+    setBlocks((currentBlocks) =>
+      moveBlockToTime(currentBlocks, draggedBlockId, time)
+    )
+
+    setDraggedBlockId(null)
+  }
+
+  function handleDropOnBlock(targetBlock: TimeBlock) {
+    if (draggedBlockId === null) return
+
+    setBlocks((currentBlocks) => {
+      const draggedBlock = currentBlocks.find(
+        (block) => block.id === draggedBlockId
+      )
+
+      if (!draggedBlock) return currentBlocks
+
+      if (draggedBlock.time !== targetBlock.time) {
+        const movedBlocks = moveBlockToTime(
+          currentBlocks,
+          draggedBlockId,
+          targetBlock.time
+        )
+
+        return reorderBlocksWithinTime(
+          movedBlocks,
+          draggedBlockId,
+          targetBlock.id
+        )
+      }
+
+      return reorderBlocksWithinTime(
+        currentBlocks,
+        draggedBlockId,
+        targetBlock.id
+      )
+    })
+
+    setDraggedBlockId(null)
+  }
+
+  function handleDeleteBlock(id: number) {
+    setBlocks((prev) => prev.filter((block) => block.id !== id))
+
+    if (selectedBlock?.id === id) {
+      setSelectedBlock(null)
+    }
+  }
 
   return (
     <section className="day-timeline">
@@ -176,34 +204,53 @@ function handleDeleteBlock(id: number) {
             <div className="time-slot" key={time}>
               <div className="time-label">{time}</div>
 
-              <div className="time-content">
+              <div
+                className="time-content"
+                onDragOver={handleDragOver}
+                onDrop={() => handleDropOnTime(time)}
+              >
                 {blocksForTime.length === 0 ? (
                   <span className="empty-state">No events scheduled</span>
                 ) : (
                   blocksForTime.map((block) => (
-                    <button
+                    <div
                       key={block.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       draggable
                       onDragStart={() => handleDragStart(block.id)}
+                      onDragEnd={handleDragEnd}
                       onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(block)}
+                      onDrop={(e) => {
+                        e.stopPropagation()
+                        handleDropOnBlock(block)
+                      }}
+                      onClick={() => handleBlockClick(block)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleBlockClick(block)
+                        }
+                      }}
                       className={`time-block priority-${block.priority}`}
                       style={{ width: durationWidths[block.duration] }}
-                      onClick={() => handleBlockClick(block)}
                     >
                       <div className="priority-strip" aria-hidden="true"></div>
+
                       <div className="time-block-details">{block.details}</div>
+
                       <button
+                        type="button"
                         className="delete-btn"
                         onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteBlock(block.id)
+                          e.stopPropagation()
+                          handleDeleteBlock(block.id)
                         }}
+                        aria-label={`Delete ${block.details}`}
                       >
                         ✕
                       </button>
-                    </button>
+                    </div>
                   ))
                 )}
               </div>
@@ -223,6 +270,7 @@ function handleDeleteBlock(id: number) {
           >
             <div className="popup-header">
               <h3 id="block-popup-title">Event Details</h3>
+
               <button
                 type="button"
                 className="popup-close"
@@ -237,19 +285,24 @@ function handleDeleteBlock(id: number) {
               <p>
                 <strong>Time:</strong> {selectedBlock.time}
               </p>
+
               <p>
                 <strong>Duration:</strong>{' '}
                 {selectedBlock.duration === 60
                   ? '1 hour'
                   : `${selectedBlock.duration} mins`}
               </p>
+
               <p>
                 <strong>Priority:</strong> {selectedBlock.priority}
               </p>
+
               <p>
                 <strong>Details:</strong> {selectedBlock.details}
               </p>
+
               <button
+                type="button"
                 className="delete-btn-popup"
                 onClick={() => handleDeleteBlock(selectedBlock.id)}
               >
