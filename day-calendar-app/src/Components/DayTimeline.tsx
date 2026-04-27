@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import './DayTimeline.css'
 import {
   moveBlockToTime,
@@ -6,7 +7,8 @@ import {
   type TimeBlock,
   type DurationOption,
   type PriorityOption,
-} from './DragHelpers.ts'
+} from './DragHelpers'
+import EditEventModal from './EditEventModal'
 
 const timeSlots = [
   '10:00 AM',
@@ -28,6 +30,12 @@ const durationWidths: Record<DurationOption, string> = {
   60: '100%',
 }
 
+const blockSpring = {
+  type: 'spring' as const,
+  damping: 30,
+  stiffness: 220,
+}
+
 function DayTimeline() {
   const [selectedTime, setSelectedTime] = useState<string>('10:00 AM')
   const [selectedDuration, setSelectedDuration] = useState<DurationOption>(15)
@@ -35,6 +43,7 @@ function DayTimeline() {
   const [priority, setPriority] = useState<PriorityOption>('medium')
   const [blocks, setBlocks] = useState<TimeBlock[]>([])
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null)
+  const [editingBlock, setEditingBlock] = useState<TimeBlock | null>(null)
   const [draggedBlockId, setDraggedBlockId] = useState<number | null>(null)
 
   function handleAddBlock() {
@@ -63,6 +72,26 @@ function DayTimeline() {
 
   function closePopup() {
     setSelectedBlock(null)
+  }
+
+  function openEditModal() {
+    if (!selectedBlock) return
+    setEditingBlock(selectedBlock)
+  }
+
+  function closeEditModal() {
+    setEditingBlock(null)
+  }
+
+  function handleSaveEditedBlock(updatedBlock: TimeBlock) {
+    setBlocks((currentBlocks) =>
+      currentBlocks.map((block) =>
+        block.id === updatedBlock.id ? updatedBlock : block
+      )
+    )
+
+    setSelectedBlock(updatedBlock)
+    setEditingBlock(null)
   }
 
   function handleDragStart(id: number) {
@@ -126,6 +155,10 @@ function DayTimeline() {
 
     if (selectedBlock?.id === id) {
       setSelectedBlock(null)
+    }
+
+    if (editingBlock?.id === id) {
+      setEditingBlock(null)
     }
   }
 
@@ -204,93 +237,134 @@ function DayTimeline() {
         </button>
       </div>
 
-      {visibleTimes.length === 0 ? (
-        <div className="timeline timeline-empty">
-          <div className="time-content">
-            <span className="empty-state">
-              No events yet. Add a block to show a time slot.
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="timeline">
-          {visibleTimes.map((time) => {
-            const blocksForTime = blocks.filter((block) => block.time === time)
+      <AnimatePresence initial={false}>
+        {visibleTimes.length === 0 ? (
+          <motion.div
+            key="empty-timeline"
+            className="timeline timeline-empty"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="time-content">
+              <span className="empty-state">
+                No events yet. Add a block to show a time slot.
+              </span>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="timeline"
+            className="timeline"
+            layout
+            transition={blockSpring}
+          >
+            <AnimatePresence initial={false}>
+              {visibleTimes.map((time) => {
+                const blocksForTime = blocks.filter((block) => block.time === time)
 
-            return (
-              <div className="time-slot" key={time}>
-                <div className="time-label">{time}</div>
+                return (
+                  <motion.div
+                    key={time}
+                    className="time-slot"
+                    layout
+                    transition={blockSpring}
+                  >
+                    <div className="time-label">{time}</div>
 
-                <div
-                  className="time-content"
+                    <motion.div
+                      className="time-content"
+                      layout
+                      transition={blockSpring}
+                      onDragOver={handleDragOver}
+                      onDrop={() => handleDropOnTime(time)}
+                    >
+                      <AnimatePresence initial={false}>
+                        {blocksForTime.map((block) => (
+                          <motion.div
+                            key={block.id}
+                            role="button"
+                            tabIndex={0}
+                            draggable
+                            layout
+                            initial={{ opacity: 0, scale: 0.92 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.92 }}
+                            transition={blockSpring}
+                            onDragStart={() => handleDragStart(block.id)}
+                            onDragEnd={handleDragEnd}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => {
+                              e.stopPropagation()
+                              handleDropOnBlock(block)
+                            }}
+                            onClick={() => handleBlockClick(block)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handleBlockClick(block)
+                              }
+                            }}
+                            className={`time-block priority-${block.priority}`}
+                            style={{ width: durationWidths[block.duration] }}
+                          >
+                            <div className="priority-strip" aria-hidden="true"></div>
+
+                            <div className="time-block-details">{block.details}</div>
+
+                            <button
+                              type="button"
+                              className="delete-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteBlock(block.id)
+                              }}
+                              aria-label={`Delete ${block.details}`}
+                            >
+                              ✕
+                            </button>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence initial={false}>
+        {hiddenTimes.length > 0 && (
+          <motion.div
+            className="collapsed-times-panel"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            layout
+          >
+            <p className="collapsed-times-title">Unused time slots</p>
+
+            <motion.div className="collapsed-times-grid" layout transition={blockSpring}>
+              {hiddenTimes.map((time) => (
+                <motion.div
+                  key={time}
+                  className="collapsed-time-dropzone"
+                  layout
+                  transition={blockSpring}
                   onDragOver={handleDragOver}
                   onDrop={() => handleDropOnTime(time)}
                 >
-                  {blocksForTime.map((block) => (
-                    <div
-                      key={block.id}
-                      role="button"
-                      tabIndex={0}
-                      draggable
-                      onDragStart={() => handleDragStart(block.id)}
-                      onDragEnd={handleDragEnd}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => {
-                        e.stopPropagation()
-                        handleDropOnBlock(block)
-                      }}
-                      onClick={() => handleBlockClick(block)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          handleBlockClick(block)
-                        }
-                      }}
-                      className={`time-block priority-${block.priority}`}
-                      style={{ width: durationWidths[block.duration] }}
-                    >
-                      <div className="priority-strip" aria-hidden="true"></div>
-
-                      <div className="time-block-details">{block.details}</div>
-
-                      <button
-                        type="button"
-                        className="delete-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteBlock(block.id)
-                        }}
-                        aria-label={`Delete ${block.details}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {hiddenTimes.length > 0 && (
-        <div className="collapsed-times-panel">
-          <p className="collapsed-times-title">Unused time slots</p>
-
-          <div className="collapsed-times-grid">
-            {hiddenTimes.map((time) => (
-              <div
-                key={time}
-                className="collapsed-time-dropzone"
-                onDragOver={handleDragOver}
-                onDrop={() => handleDropOnTime(time)}
-              >
-                <span>{time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                  <span>{time}</span>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {selectedBlock && (
         <div className="popup-overlay" onClick={closePopup}>
@@ -303,7 +377,6 @@ function DayTimeline() {
           >
             <div className="popup-header">
               <h3 id="block-popup-title">Event Details</h3>
-
               <button
                 type="button"
                 className="popup-close"
@@ -318,32 +391,48 @@ function DayTimeline() {
               <p>
                 <strong>Time:</strong> {selectedBlock.time}
               </p>
-
               <p>
                 <strong>Duration:</strong>{' '}
                 {selectedBlock.duration === 60
                   ? '1 hour'
                   : `${selectedBlock.duration} mins`}
               </p>
-
               <p>
                 <strong>Priority:</strong> {selectedBlock.priority}
               </p>
-
               <p>
                 <strong>Details:</strong> {selectedBlock.details}
               </p>
 
-              <button
-                type="button"
-                className="delete-btn-popup"
-                onClick={() => handleDeleteBlock(selectedBlock.id)}
-              >
-                Delete Event
-              </button>
+              <div className="popup-actions">
+                <button
+                  type="button"
+                  className="edit-event-button"
+                  onClick={openEditModal}
+                >
+                  Edit Event
+                </button>
+
+                <button
+                  type="button"
+                  className="delete-btn-popup"
+                  onClick={() => handleDeleteBlock(selectedBlock.id)}
+                >
+                  Delete Event
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {editingBlock && (
+        <EditEventModal
+          block={editingBlock}
+          timeSlots={timeSlots}
+          onClose={closeEditModal}
+          onSave={handleSaveEditedBlock}
+        />
       )}
     </section>
   )

@@ -350,3 +350,55 @@
   justify-content: center;
   font-size: 14px;
 }
+
+.popup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.edit-event-button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.edit-cancel-button {
+  min-height: 42px;
+  padding: 0.7rem 1rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.time-block {
+  will-change: transform;
+  transform-origin: center;
+}
+
+.collapsed-time-dropzone {
+  transition:
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
