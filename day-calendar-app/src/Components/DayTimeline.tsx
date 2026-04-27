@@ -6,7 +6,7 @@ import {
   type TimeBlock,
   type DurationOption,
   type PriorityOption,
-} from './DragHelpers'
+} from './DragHelpers.ts'
 
 const timeSlots = [
   '10:00 AM',
@@ -129,6 +129,14 @@ function DayTimeline() {
     }
   }
 
+  const visibleTimes = timeSlots.filter((time) =>
+    blocks.some((block) => block.time === time)
+  )
+
+  const hiddenTimes = timeSlots.filter(
+    (time) => !blocks.some((block) => block.time === time)
+  )
+
   return (
     <section className="day-timeline">
       <h2>Daily Timeline</h2>
@@ -196,23 +204,29 @@ function DayTimeline() {
         </button>
       </div>
 
-      <div className="timeline">
-        {timeSlots.map((time) => {
-          const blocksForTime = blocks.filter((block) => block.time === time)
+      {visibleTimes.length === 0 ? (
+        <div className="timeline timeline-empty">
+          <div className="time-content">
+            <span className="empty-state">
+              No events yet. Add a block to show a time slot.
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="timeline">
+          {visibleTimes.map((time) => {
+            const blocksForTime = blocks.filter((block) => block.time === time)
 
-          return (
-            <div className="time-slot" key={time}>
-              <div className="time-label">{time}</div>
+            return (
+              <div className="time-slot" key={time}>
+                <div className="time-label">{time}</div>
 
-              <div
-                className="time-content"
-                onDragOver={handleDragOver}
-                onDrop={() => handleDropOnTime(time)}
-              >
-                {blocksForTime.length === 0 ? (
-                  <span className="empty-state">No events scheduled</span>
-                ) : (
-                  blocksForTime.map((block) => (
+                <div
+                  className="time-content"
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDropOnTime(time)}
+                >
+                  {blocksForTime.map((block) => (
                     <div
                       key={block.id}
                       role="button"
@@ -251,13 +265,32 @@ function DayTimeline() {
                         ✕
                       </button>
                     </div>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
+
+      {hiddenTimes.length > 0 && (
+        <div className="collapsed-times-panel">
+          <p className="collapsed-times-title">Unused time slots</p>
+
+          <div className="collapsed-times-grid">
+            {hiddenTimes.map((time) => (
+              <div
+                key={time}
+                className="collapsed-time-dropzone"
+                onDragOver={handleDragOver}
+                onDrop={() => handleDropOnTime(time)}
+              >
+                <span>{time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedBlock && (
         <div className="popup-overlay" onClick={closePopup}>
