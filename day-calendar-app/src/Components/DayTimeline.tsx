@@ -10,6 +10,8 @@ import {
 } from './DragHelpers'
 import EditEventModal from './EditEventModal'
 
+import { useEffect } from 'react' // for backend integration
+
 const timeSlots = [
   '10:00 AM',
   '11:00 AM',
@@ -45,6 +47,42 @@ function DayTimeline() {
   const [selectedBlock, setSelectedBlock] = useState<TimeBlock | null>(null)
   const [editingBlock, setEditingBlock] = useState<TimeBlock | null>(null)
   const [draggedBlockId, setDraggedBlockId] = useState<number | null>(null)
+  const [currentDate, setCurrentDate] = useState(
+  new Date().toISOString().split('T')[0]) // YYYY-MM-DD
+  const [loaded, setLoaded] = useState(false)
+
+useEffect(() => {
+  async function fetchSchedule() {
+    const res = await fetch(
+      `http://localhost:5000/api/schedule/${currentDate}`
+    )
+
+    const data = await res.json()
+    setBlocks(data.blocks || [])
+    setLoaded(true)
+  }
+
+  fetchSchedule()
+}, [currentDate])
+
+useEffect(() => {
+  if (!loaded) return
+
+  async function saveSchedule() {
+    await fetch('http://localhost:5000/api/schedule', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        date: currentDate,
+        blocks,
+      }),
+    })
+  }
+
+  saveSchedule()
+}, [blocks, currentDate, loaded])
 
   function handleAddBlock() {
     const trimmedDetails = details.trim()
@@ -176,6 +214,12 @@ function DayTimeline() {
 
       <div className="timeline-controls">
         <div className="control-group">
+          <label>Select Date</label>
+          <input
+            type="date"
+            value={currentDate}
+            onChange={(e) => setCurrentDate(e.target.value)}
+          />
           <label htmlFor="start-time">Start time</label>
           <select
             id="start-time"
